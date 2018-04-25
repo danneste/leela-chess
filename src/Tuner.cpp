@@ -263,8 +263,10 @@ bool isEmplaceBack()
 
 void multiplyCfgs(std::vector<Configurations> &opts)
 {
-	for (auto c = size_t{0}; c < opts.size(); c++) {
-	cfgs *= opts[c].second.size();
+	for (auto c = size_t{0}; c < opts.size(); c++) 
+	{
+		cfgs *= opts[c].second.size();
+	}
 }
 
 void tuneParams(std::vector<Configurations> &opts)
