@@ -195,45 +195,138 @@ static float compare_ref(std::vector<float> &x, std::vector<float> &ref,
     return sum / (m*n);
 }
 
+void setOptsExhaustive(std::vector<Configurations> &opts)
+{
+	opts = {
+		{"MWG", {16, 32, 64}},
+		{"NWG", {16, 32, 64}},
+		{"KWG", {16, 32}},
+		{"MDIMC", {8, 16, 32}},
+		{"NDIMC", {8, 16, 32}},
+		{"MDIMA", {8, 16, 32}},
+		{"NDIMB", {8, 16, 32}},
+		{"KWI", {2, 8}},
+		{"VWM", {1, 2, 4, 8}},
+		{"VWN", {1, 2, 4, 8}},
+		{"STRM", {0, 1}},
+		{"STRN", {0, 1}},
+		{"SA", {0, 1}},
+		{"SB", {0, 1}}
+	};
+}
+
+void setOptsNonExhaustive(std::vector<Configurations> &opts)
+{
+	opts = {
+		{"MWG", {16, 32, 64}},
+		{"NWG", {16, 32, 64}},
+		{"KWG", {32}},
+		{"MDIMC", {8, 16, 32}},
+		{"NDIMC", {8, 16, 32}},
+		{"MDIMA", {8, 16, 32}},
+		{"NDIMB", {8, 16, 32}},
+		{"KWI", {2}},
+		{"VWM", {1, 2, 4}},
+		{"VWN", {1, 2, 4}},
+		{"STRM", {0}},
+		{"STRN", {0}},
+		{"SA", {0, 1}},
+		{"SB", {0, 1}},
+	};
+}
+
+
+void setOpts(std::vector<Configurations> &opts)
+{
+	if (cfg_sgemm_exhaustive) {
+		setOptsExhaustive(opts)
+    } else {
+		setOptsNonExhaustive(opts);
+    }
+}
+
+bool isEmplaceBack()
+{
+	if (valid_config_sgemm(param, cfg_sgemm_exhaustive)) 
+	{
+		if (cfg_sgemm_exhaustive) 
+		{
+			if (rng.RandInt<std::uint16_t>(16) != 0) {
+				return false;
+			}
+		}
+		valid_params.emplace_back(i);
+	}
+	
+	return true;
+}
+
+void multiplyCfgs(std::vector<Configurations> &opts)
+{
+	for (auto c = size_t{0}; c < opts.size(); c++) {
+	cfgs *= opts[c].second.size();
+}
+
+void tuneParams(std::vector<Configurations> &opts)
+{
+	for (auto i = 0; i < cfgs; i++) 
+	{
+		TuneParameters param = get_parameters_by_int(opts, i);
+		if (isEmplaceBack())
+		continue;
+	}
+}
+
+bool bigLoop()
+{
+	try 
+	{
+		queue.enqueueNDRangeKernel(sgemm_kernel, cl::NullRange,
+								   size_sgemm, local_sgemm,
+								   nullptr, &event);
+		queue.finish();
+		event.wait();
+
+		queue.enqueueReadBuffer(cBuffer, CL_FALSE, 0,
+								c_size * sizeof(float), c.data());
+		queue.finish();
+
+		auto this_error = compare_ref(c, c_ref, n, m, batch_size,
+									  n_ceil, m_ceil);
+		max_error = std::max(max_error, this_error);
+
+		auto elapsed =
+			event.getProfilingInfo<CL_PROFILING_COMMAND_END>() -
+			event.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+
+		sum += elapsed;
+	} 
+	catch (const cl::Error&) 
+	{			
+		// Failed to enqueue kernel. Set error to max.
+		max_error = MAX_ERROR;
+		return false;
+	}
+	if (max_error < MAX_ERROR && (best_time == 0 || sum < best_time)) 
+	{
+		auto kernel_ms = 1e-6f * (sum / runs);
+		// Timing is in nanoseconds (10^-9), Giga = 10^9, so this works out
+		auto kernel_gflops = total_flops / (sum / runs);
+		myprintf("(%u/%u) %s %.4f ms (%.1f GFLOPS)\n",
+		   param_counter, valid_params.size(), param_str.c_str(),
+		   kernel_ms, kernel_gflops);
+		best_time = sum;
+		best_params = defines;
+	}
+	
+	return true;
+}
+
 std::string Tuner::tune_sgemm(const int m, const int n, const int k,
                               const int batch_size, const int runs) {
     auto opts = std::vector<Configurations>();
-    if (cfg_sgemm_exhaustive) {
-        opts = {
-            {"MWG", {16, 32, 64}},
-            {"NWG", {16, 32, 64}},
-            {"KWG", {16, 32}},
-            {"MDIMC", {8, 16, 32}},
-            {"NDIMC", {8, 16, 32}},
-            {"MDIMA", {8, 16, 32}},
-            {"NDIMB", {8, 16, 32}},
-            {"KWI", {2, 8}},
-            {"VWM", {1, 2, 4, 8}},
-            {"VWN", {1, 2, 4, 8}},
-            {"STRM", {0, 1}},
-            {"STRN", {0, 1}},
-            {"SA", {0, 1}},
-            {"SB", {0, 1}},
-        };
-    } else {
-        opts = {
-            {"MWG", {16, 32, 64}},
-            {"NWG", {16, 32, 64}},
-            {"KWG", {32}},
-            {"MDIMC", {8, 16, 32}},
-            {"NDIMC", {8, 16, 32}},
-            {"MDIMA", {8, 16, 32}},
-            {"NDIMB", {8, 16, 32}},
-            {"KWI", {2}},
-            {"VWM", {1, 2, 4}},
-            {"VWN", {1, 2, 4}},
-            {"STRM", {0}},
-            {"STRN", {0}},
-            {"SA", {0, 1}},
-            {"SB", {0, 1}},
-        };
-    }
-
+	setOpts(opts);
+	
     // This needs to be at minimum the maximum (MNK/WG) values above.
     auto m_max = std::max(64, m);
     auto n_max = std::max(64, n);
@@ -272,23 +365,11 @@ std::string Tuner::tune_sgemm(const int m, const int n, const int k,
 
     auto valid_params = std::vector<int>{};
     auto cfgs = 1;
-    for (auto c = size_t{0}; c < opts.size(); c++) {
-        cfgs *= opts[c].second.size();
-    }
+	multiplyCfgs(opts);
 
     auto rng = Random{0};
-
-    for (auto i = 0; i < cfgs; i++) {
-        TuneParameters param = get_parameters_by_int(opts, i);
-        if (valid_config_sgemm(param, cfg_sgemm_exhaustive)) {
-            if (cfg_sgemm_exhaustive) {
-                if (rng.RandInt<std::uint16_t>(16) != 0) {
-                    continue;
-                }
-            }
-            valid_params.emplace_back(i);
-        }
-    }
+	
+	tuneParams();
     myprintf("Will try %zu valid configurations.\n", valid_params.size());
 
     std::string best_params;
@@ -358,44 +439,11 @@ std::string Tuner::tune_sgemm(const int m, const int n, const int k,
 
         auto sum = 0.0f;
         auto max_error = 0.0f;
-        for (auto r = 0; r < runs; r++) {
-            try {
-                queue.enqueueNDRangeKernel(sgemm_kernel, cl::NullRange,
-                                           size_sgemm, local_sgemm,
-                                           nullptr, &event);
-                queue.finish();
-                event.wait();
-
-                queue.enqueueReadBuffer(cBuffer, CL_FALSE, 0,
-                                        c_size * sizeof(float), c.data());
-                queue.finish();
-
-                auto this_error = compare_ref(c, c_ref, n, m, batch_size,
-                                              n_ceil, m_ceil);
-                max_error = std::max(max_error, this_error);
-
-                auto elapsed =
-                    event.getProfilingInfo<CL_PROFILING_COMMAND_END>() -
-                    event.getProfilingInfo<CL_PROFILING_COMMAND_START>();
-
-                sum += elapsed;
-            } catch (const cl::Error&) {
-                // Failed to enqueue kernel. Set error to max.
-                max_error = MAX_ERROR;
-                break;
-            }
-        }
-        if (max_error < MAX_ERROR && (best_time == 0 || sum < best_time)) {
-            auto param_str = parameters_to_string(p);
-            auto kernel_ms = 1e-6f * (sum / runs);
-            // Timing is in nanoseconds (10^-9), Giga = 10^9, so this works out
-            auto kernel_gflops = total_flops / (sum / runs);
-            myprintf("(%u/%u) %s %.4f ms (%.1f GFLOPS)\n",
-               param_counter, valid_params.size(), param_str.c_str(),
-               kernel_ms, kernel_gflops);
-            best_time = sum;
-            best_params = defines;
-        }
+        for (auto r = 0; r < runs; r++) 
+		{
+			if (!bigLoop())
+				break;
+		}
     }
     if (best_time == 0) {
         myprintf_so("Failed to find a working configuration.\nCheck your OpenCL drivers.\n");
