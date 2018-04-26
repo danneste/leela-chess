@@ -35,6 +35,7 @@
 #include <boost/utility.hpp>
 #include <boost/format.hpp>
 #include "zlib.h"
+#include "initT.h"
 
 #ifdef __APPLE__
 #include <Accelerate/Accelerate.h>
@@ -632,22 +633,7 @@ void Network::winograd_transform_in(const std::vector<float>& in,
 
                 WinogradTile T1, T2;
 
-                T1[0][0] = x[0][0] - x[2][0];
-                T1[0][1] = x[0][1] - x[2][1];
-                T1[0][2] = x[0][2] - x[2][2];
-                T1[0][3] = x[0][3] - x[2][3];
-                T1[1][0] = x[1][0] + x[2][0];
-                T1[1][1] = x[1][1] + x[2][1];
-                T1[1][2] = x[1][2] + x[2][2];
-                T1[1][3] = x[1][3] + x[2][3];
-                T1[2][0] = x[2][0] - x[1][0];
-                T1[2][1] = x[2][1] - x[1][1];
-                T1[2][2] = x[2][2] - x[1][2];
-                T1[2][3] = x[2][3] - x[1][3];
-                T1[3][0] = x[1][0] - x[3][0];
-                T1[3][1] = x[1][1] - x[3][1];
-                T1[3][2] = x[1][2] - x[3][2];
-                T1[3][3] = x[1][3] - x[3][3];
+				initT::initTWork(T1, x);
 
                 T2[0][0] = T1[0][0] - T1[0][2];
                 T2[0][1] = T1[0][1] + T1[0][2];
