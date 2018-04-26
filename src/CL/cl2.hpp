@@ -4942,6 +4942,19 @@ public:
 };
 #endif // #if CL_HPP_TARGET_OPENCL_VERSION >= 120
 
+class pitches
+{
+	pitches(size_type row, size_type slice);
+	
+	private:
+	  size_type row_pitch;
+	  size_type slice_pitch
+	  
+	public:
+	  size_type getRowPitch{return row_pitch;};
+	  size_type getSlicePitch{return slice_pitch;};	  
+}
+
 class sizes
 {
 	sizes(size_type width, size_type height, size_type depth);
@@ -4957,7 +4970,6 @@ class sizes
 	  size_type getDepth{return m_depth;};	  
 }
 
-
 /*! \brief Class interface for 3D Image Memory objects.
  *
  *  See Memory for details about copy semantics, etc.
@@ -4965,7 +4977,12 @@ class sizes
  *  \see Memory
  */
 class Image3D : public Image
-{
+{	
+
+private:
+  sizes m_size;
+  pitches m_pitch;
+	
 public:
     /*! \brief Constructs a 3D Image in a specified context.
      *
@@ -4975,14 +4992,10 @@ public:
         const Context& context,
         cl_mem_flags flags,
         ImageFormat format,
-//        size_type width,
-//        size_type height,
-//        size_type depth,
-
-		sizes m_sizes,	//new
 		
-        size_type row_pitch = 0,
-        size_type slice_pitch = 0,
+		sizes size,
+		pitches pitch
+		
         void* host_ptr = NULL,
         cl_int* err = NULL)
     {
@@ -5008,13 +5021,10 @@ public:
             cl_image_desc desc =
             {
                 CL_MEM_OBJECT_IMAGE3D,
-//                width,
-//                height,
-//                depth,
-				sizes(width, height, depth),
+
+				m_size,
                 0,      // array size (unused)
-                row_pitch,
-                slice_pitch,
+				m_pitch,
                 0, 0, 0
             };
             object_ = ::clCreateImage(
@@ -5035,8 +5045,7 @@ public:
         if (!useCreateImage)
         {
             object_ = ::clCreateImage3D(
-                context(), flags, &format, width, height, depth, row_pitch,
-                slice_pitch, host_ptr, &error);
+                context(), flags, &format, m_sizes, m_pitches, host_ptr, &error);
 
             detail::errHandler(error, __CREATE_IMAGE3D_ERR);
             if (err != NULL) {
