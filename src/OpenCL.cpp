@@ -39,6 +39,7 @@
 #include "Network.h"
 #include "Tuner.h"
 #include "Parameters.h"
+#include "initT.h"
 
 using namespace Utils;
 
@@ -158,22 +159,7 @@ static std::string sourceCode_convolve3 = R"(
 void __in_transform_eq(float x[4][4], __global float * restrict V, int offset, int CPpad) {
     float T1[4][4];
 
-    T1[0][0] = x[0][0] - x[2][0];
-    T1[0][1] = x[0][1] - x[2][1];
-    T1[0][2] = x[0][2] - x[2][2];
-    T1[0][3] = x[0][3] - x[2][3];
-    T1[1][0] = x[1][0] + x[2][0];
-    T1[1][1] = x[1][1] + x[2][1];
-    T1[1][2] = x[1][2] + x[2][2];
-    T1[1][3] = x[1][3] + x[2][3];
-    T1[2][0] = x[2][0] - x[1][0];
-    T1[2][1] = x[2][1] - x[1][1];
-    T1[2][2] = x[2][2] - x[1][2];
-    T1[2][3] = x[2][3] - x[1][3];
-    T1[3][0] = x[1][0] - x[3][0];
-    T1[3][1] = x[1][1] - x[3][1];
-    T1[3][2] = x[1][2] - x[3][2];
-    T1[3][3] = x[1][3] - x[3][3];
+	initT::initTWork(T1,x);
 
     V[(0*4 + 0)*CPpad + offset] = T1[0][0] - T1[0][2];
     V[(0*4 + 1)*CPpad + offset] = T1[0][1] + T1[0][2];
