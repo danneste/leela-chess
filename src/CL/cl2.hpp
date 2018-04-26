@@ -4942,6 +4942,22 @@ public:
 };
 #endif // #if CL_HPP_TARGET_OPENCL_VERSION >= 120
 
+class sizes
+{
+	sizes(size_type width, size_type height, size_type depth);
+	
+	private:
+	  size_type m_width;
+	  size_type m_height
+	  size_type m_depth;
+	  
+	public:
+	  size_type getWidth{return m_width;};
+	  size_type getHeight{return m_height;};
+	  size_type getDepth{return m_depth;};	  
+}
+
+
 /*! \brief Class interface for 3D Image Memory objects.
  *
  *  See Memory for details about copy semantics, etc.
@@ -4959,9 +4975,12 @@ public:
         const Context& context,
         cl_mem_flags flags,
         ImageFormat format,
-        size_type width,
-        size_type height,
-        size_type depth,
+//        size_type width,
+//        size_type height,
+//        size_type depth,
+
+		sizes m_sizes,	//new
+		
         size_type row_pitch = 0,
         size_type slice_pitch = 0,
         void* host_ptr = NULL,
@@ -4983,14 +5002,16 @@ public:
 #endif
 
 #if CL_HPP_TARGET_OPENCL_VERSION >= 120
+
         if (useCreateImage)
         {
             cl_image_desc desc =
             {
                 CL_MEM_OBJECT_IMAGE3D,
-                width,
-                height,
-                depth,
+//                width,
+//                height,
+//                depth,
+				sizes(width, height, depth),
                 0,      // array size (unused)
                 row_pitch,
                 slice_pitch,
